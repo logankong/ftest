@@ -45,8 +45,11 @@
 
 ## 使用
 1. 脚手架生成
-1.1 python artisan xxx(项目名)
-生成项目内整个架构
-1.2 python artisan xxx(项目名) xxx(脚本名)
-生成对应的action/data/elemnets 的文件
+    1. python artisan xxx(项目名)
+
+        生成项目内整个架构
+
+    2. python artisan xxx(项目名) xxx(脚本名)
+
+        生成对应的action/data/elemnets 的文件
 

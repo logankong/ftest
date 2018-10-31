@@ -1,0 +1,6 @@
+ghostdriver.log
+*.pyc
+*.png
+*.log
+*.html
+reports/*

@@ -1,0 +1,167 @@
+import sys
+import os
+import xlwt
+from ftest.config import *
+
+
+# 读文件
+def readFile(file):
+    f = open(file, 'r', encoding='utf-8')
+    try:
+        contents = f.read()
+    finally:
+        f.close()
+    return contents
+
+
+
+# 生成文件
+def makeFile(file, contents):
+    if file == 'main.py':
+        pass
+    if not os.path.isfile(file):
+        f = open(file, 'w', encoding='utf-8')
+        f.write(contents)
+        f.close()
+
+
+# 更新项目用例集
+def updateProjectMain(file, scriptName):
+    fp = open(file, 'r', encoding='utf-8')
+    lines = []
+    for line in fp:
+        lines.append(line)
+    fp.close()
+
+    projectName = file.split('/')[4]
+    scriptNameU = scriptName.capitalize()
+    lines.insert(4, 'from ftest.projects.' + projectName + '.action.' + scriptNameU + 'Action import ' + scriptNameU + 'Action\n')
+    s = ''.join(lines)
+    pos2 = s.find("def testAll(self):")
+    content_add2 = '\n        self.testsuite.addTest(unittest.makeSuite(' + scriptNameU + 'Action))'
+    pos2 += 18
+    if pos2 != -1:
+        s = s[:pos2] + content_add2 + s[pos2:]
+
+    fp = open(file, 'w', encoding='utf-8')
+    fp.write(s)
+    fp.close()
+
+
+# 更新全用例
+def updateMain(file, projectName):
+    fp = open(file, 'r', encoding='utf-8')
+    lines = []
+    for line in fp:
+        lines.append(line)
+    fp.close()
+
+    lines.insert(4, 'from ftest.projects.' + projectName + '.main import *\n')
+    s = ''.join(lines)
+    pos1 = s.find("def __init__(self):")
+    content_add1 = '''
+        %(projectName)s = %(projectNameU)s()
+        %(projectName)sSuite = %(projectName)s.testAll()''' % dict(projectName=projectName, projectNameU=projectName.capitalize())
+    content_add2 = '\n            ' + projectName + 'Suite,'
+
+    pos1 += 19
+    if pos1 != -1:
+        s = s[:pos1] + content_add1 + s[pos1:]
+
+    pos2 = s.find("self.alltests = [")
+    pos2 += 17
+    if pos2 != -1:
+        s = s[:pos2] + content_add2 + s[pos2:]
+
+    fp = open(file, 'w', encoding='utf-8')
+    fp.write(s)
+    fp.close()
+
+
+# 生成excel
+def makeExcel(file, tableName):
+    if not os.path.isfile(file):
+        filename = xlwt.Workbook()
+        sheet = filename.add_sheet(tableName)
+        contents = ['case_id', 'result', 'expect', 'actual', 'item', 'describe', 'precondition', 'input1']
+
+        for col in range(0, len(contents)):
+            sheet.write(0, col, contents[col])
+        filename.save(file)
+
+
+def main():
+    projectName = 'jiance'
+    # projectName = ''
+    scriptName = ''
+
+    dataFlag = ''
+    if len(sys.argv) >= 3:
+        projectName = sys.argv[1]
+        scriptName = sys.argv[2]
+        if len(sys.argv) >= 4:
+            dataFlag = sys.argv[3]
+    else:
+        if len(sys.argv) >= 2:
+            projectName = sys.argv[1]
+        while not projectName:
+            projectName = input("请输入项目名: ")
+        while not scriptName:
+            scriptName = input("请输入脚本名: ")
+
+    flag = ''
+    flag = input('是否要生成【' + projectName + '】项目的测试脚本:' + scriptName.capitalize() + 'Action.py [Y|n]')
+    dataFlag = input('是否要生成dataAction [y|N]')
+
+    if dataFlag.upper() == 'N' or flag == '':
+        actionContents = readFile(BASE_DIR + '/init/action.py')
+    if dataFlag.upper() == 'Y':
+        actionContents = readFile(BASE_DIR + '/init/dataAction.py')
+    baseActionContents = readFile(BASE_DIR + '/init/BaseAction.py')
+    baseActionContents = baseActionContents.replace('{projectName}', projectName)
+    actionContents = actionContents.replace('{projectName}', projectName)
+    actionContents = actionContents.replace('{scriptName}', scriptName)
+    actionContents = actionContents.replace('{scriptNameU}', scriptName.capitalize())
+    elementContents = readFile(BASE_DIR + '/init/element.py')
+    elementContents = elementContents.replace('{scriptName}', scriptName.capitalize())
+    configContents = readFile(BASE_DIR + '/init/config.py')
+    mainContents = readFile(BASE_DIR + '/init/main.py')
+    mainContents = mainContents.replace('{projectName}', scriptName)
+    mainContents = mainContents.replace('{projectNameU}', scriptName.capitalize())
+    mainContents = mainContents.replace('{scriptNameU}', scriptName.capitalize())
+    baseDir = BASE_DIR + '/projects/' + projectName
+    files = [
+        [baseDir + '/action/' + '__init__.py', ''],
+        [baseDir + '/action/' + 'BaseAction.py', baseActionContents],
+        [baseDir + '/action/' + scriptName.capitalize() + 'Action.py', actionContents],
+        [baseDir + '/elements/' + '__init__.py', ''],
+        [baseDir + '/elements/' + scriptName.capitalize() + 'Element.py', elementContents],
+        [baseDir + '/__init__.py', ''],
+        [baseDir + '/config.py', configContents],
+        [baseDir + '/main.py', mainContents],
+        [baseDir + '/reports/html/.gitkeep', ''],
+        [baseDir + '/reports/logs/.gitkeep', ''],
+    ]
+    if flag.upper() == 'Y' or flag == '':
+        # 更新全用例集
+        if not os.path.isdir(baseDir):
+            updateMain(BASE_DIR + '/main.py', projectName)
+
+        # 更新项目用例集
+        if not os.path.isfile(files[2][0]) and os.path.isfile(files[7][0]):
+            updateProjectMain(files[7][0], scriptName)
+
+        # 创建文件
+        for file in files:
+            folder = os.path.split(file[0])[0]
+            if not os.path.isdir(folder):
+                os.makedirs(folder)
+            makeFile(file[0], file[1])
+        # 创建数据文件
+        if not os.path.isdir(baseDir + '/data/'):
+            os.makedirs(baseDir + '/data/')
+        makeExcel(baseDir + '/data/' + scriptName.lower() + '.xls', scriptName)
+
+
+if __name__ == "__main__":
+    main()
